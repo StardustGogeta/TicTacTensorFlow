@@ -7,8 +7,8 @@ import time, random
 numMCTSSims = 20 # number of times it iterates Monte Carlo tree search
 threshold = 0.51 # win percentage threshold for neural net replacement
 gameCount = 20 # games to play between competing neural nets
-numIters = 5 # number of iterations
-numEps = 5 # number of episodes
+numIters = 30 # number of iterations
+numEps = 10 # number of episodes
 
 AUTOSAVE = True
 
@@ -127,7 +127,7 @@ def pit(new, old, game):
             if game.gameEnded(s):
                 newWins += (game.gameReward(s) + 1) / 2
                 break # end the game simulation
-    print(f"Success rate: {newWins / gameCount}\t\t[{time.perf_counter() - start} sec]")
+    print(f"Success rate: {newWins / gameCount:.2f}\t\t[{time.perf_counter() - start} sec]")
     return newWins / gameCount
 
 def initNNet():
@@ -137,6 +137,7 @@ def initNNet():
     Input = tf.keras.Input
     Dense = tf.keras.layers.Dense
     Flatten = tf.keras.layers.Flatten
+    Dropout = tf.keras.layers.Dropout
     Concatenate = tf.keras.layers.Concatenate
     Lambda = tf.keras.layers.Lambda
     Model = tf.keras.Model
@@ -149,6 +150,7 @@ def initNNet():
     x = Dense(8, activation='relu')(boardInput)
     x = Dense(20, activation='relu')(x)
     x = Flatten(name="flattened")(x)
+    x = Dropout(0.3, name="dropped")(x)
 
     y = Dense(18, activation='relu', name="dense_policy_1")(x)
 
@@ -218,9 +220,10 @@ def playAgainstHuman(nnet, game):
             break # end the game simulation
     print("\n-----\nFINAL BOARD\n-----\n", s, "\n")
 
-def playAgainstRandom(nnet, game):
-    numGames = 100
+def playAgainstRandom(nnet, game, numGames):
+    #numGames = 100
     netWins = 0
+    netTies = 0
     
     for i in range(numGames // 2):
         mcts = MCTS()
@@ -230,14 +233,22 @@ def playAgainstRandom(nnet, game):
             a = random.choice(game.getValidActions(s))
             s = game.nextState(s,a)
             if game.gameEnded(s):
-                netWins += (-game.gameReward(s) + 1) / 2
+                reward = (-game.gameReward(s) + 1) / 2
+                if reward == 1:
+                    netWins += 1
+                elif reward == 1/2:
+                    netTies += 1
                 break # end the game simulation
 
             # Neural net goes second
             a = getOptimalAction(game, s, mcts, nnet)
             s = game.nextState(s,a)
             if game.gameEnded(s):
-                netWins += (game.gameReward(s) + 1) / 2
+                reward = (game.gameReward(s) + 1) / 2
+                if reward == 1:
+                    netWins += 1
+                elif reward == 1/2:
+                    netTies += 1
                 break # end the game simulation
         #print("\n-----\nFINAL BOARD\n-----\n", s, "\n")
         
@@ -248,23 +259,32 @@ def playAgainstRandom(nnet, game):
             a = getOptimalAction(game, s, mcts, nnet)
             s = game.nextState(s,a)
             if game.gameEnded(s):
-                netWins += (game.gameReward(s) + 1) / 2
+                reward = (game.gameReward(s) + 1) / 2
+                if reward == 1:
+                    netWins += 1
+                elif reward == 1/2:
+                    netTies += 1
                 break # end the game simulation
 
             # Random player goes second
             a = random.choice(game.getValidActions(s))
             s = game.nextState(s,a)
             if game.gameEnded(s):
-                netWins += (-game.gameReward(s) + 1) / 2
+                reward = (-game.gameReward(s) + 1) / 2
+                if reward == 1:
+                    netWins += 1
+                elif reward == 1/2:
+                    netTies += 1
                 break # end the game simulation
         #print("\n-----\nFINAL BOARD\n-----\n", s, "\n")
         print(f"{2*(i+1)} of {numGames} games complete...")
-    print(f"Neural net won {netWins} of {numGames} games against random.")
+    print(f"Neural net won {netWins}, tied {netTies}, and lost {numGames-netWins-netTies} of {numGames} games against random.")
 
 game = Game()
-#policyIterSP(game)
+policyIterSP(game)
 
-best_nnet = tf.keras.models.load_model("./models/my_nnet")
+#best_nnet = tf.keras.models.load_model("./models/my_nnet")
 #print(best_nnet.summary())
-playAgainstRandom(best_nnet, game)
+#playAgainstRandom(best_nnet, game, 200)
+#playAgainstHuman(best_nnet, game)
 
