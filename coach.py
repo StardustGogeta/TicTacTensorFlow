@@ -139,13 +139,13 @@ def initNNet():
     #             | --> z (value)
     #
     boardInput = Input(shape=(3,3))
-    x = Dense(8)(boardInput)
+    x = Dense(8, activation='relu')(boardInput)
     x = Dense(20, activation='relu')(x)
     x = Flatten(name="flattened")(x)
 
-    y = Dense(18, name="dense_policy_1")(x)
+    y = Dense(18, activation='relu', name="dense_policy_1")(x)
 
-    z = Dense(10, name="dense_value_1")(x)
+    z = Dense(10, activation='relu', name="dense_value_1")(x)
     z = Dense(1, name="dense_value_2")(z)
 
     #a = Concatenate()([y, z])
@@ -165,7 +165,7 @@ def initNNet():
 
 def trainNNet(nnet, examples):
     new_nnet = tf.keras.models.clone_model(nnet)
-    loss_fn = tf.keras.losses.MeanSquaredError()
+    loss_fn = tf.keras.losses.MeanAbsoluteError()
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
     new_nnet.compile(optimizer=optimizer, loss=loss_fn, metrics=['accuracy'])
     
