@@ -125,22 +125,7 @@ def pit(new, old, game):
 
 def initNNet():
     # creates and returns new neural network
-
-    # standard sequential model:
-##    model = tf.keras.models.Sequential([
-##        tf.keras.layers.Flatten(input_shape=(3,3)),
-##        tf.keras.layers.Dense(64, activation='relu'),
-##        tf.keras.layers.Dropout(0.2),
-##        tf.keras.layers.Dense(5)
-##    ])
-
-    # functional model:
-##    inputs = tf.keras.Input(shape=(3,3))
-##    x = tf.keras.layers.Dense(4, activation=tf.nn.relu)(inputs)
-##    outputs = tf.keras.layers.Dense(5, activation=tf.nn.softmax)(x)
-##    model = tf.keras.Model(inputs=inputs, outputs=outputs)
-
-    # modified functional:
+    # modified functional model:
     # https://www.pyimagesearch.com/2019/02/04/keras-multiple-inputs-and-mixed-data/
     Input = tf.keras.Input
     Dense = tf.keras.layers.Dense
@@ -149,40 +134,19 @@ def initNNet():
     Lambda = tf.keras.layers.Lambda
     Model = tf.keras.Model
     
-##    boardInput = Input(shape=(3,3))
-##    policyInput = Input(shape=(3,3,2))
-##
-##    x = Dense(64, activation='relu')(boardInput)
-##    x = Dense(2, activation='relu')(x)
-##    x = Model(inputs=boardInput, outputs=x)
-##
-##    y = Dense(64, activation='relu')(policyInput)
-##    y = Dense(2, activation='relu')(y)
-##    y = Model(inputs=policyInput, outputs=y)
-##
-##    combined = Concatenate([x.output, y.output])
-
-
     # Goes like this:
     # x (board) --| --> y (policy)
     #             | --> z (value)
     #
     boardInput = Input(shape=(3,3))
-    #print(boardInput.shape)
     x = Dense(8)(boardInput)
-    #x = Dense(20, activation='relu')(x)
+    x = Dense(20, activation='relu')(x)
     x = Flatten(name="flattened")(x)
 
     y = Dense(18, name="dense_policy_1")(x)
-    #y.reshape((3,3,2))
-    #y = Model(inputs=boardInput, outputs=y)
 
     z = Dense(10, name="dense_value_1")(x)
     z = Dense(1, name="dense_value_2")(z)
-    #z = Model(inputs=boardInput, outputs=z)
-
-    #print(y.summary())
-    #print(z.summary())
 
     #a = Concatenate()([y, z])
 
@@ -206,23 +170,8 @@ def trainNNet(nnet, examples):
     new_nnet.compile(optimizer=optimizer, loss=loss_fn, metrics=['accuracy'])
     
     # examples are of the form (state, policy, value)
-    #print("ex1:", examples[0])
-##    np_ex = np.array(examples)
-##    for ex in np_ex:
-##        if ex[2] is None:
-##            print("FAILED!")
-##    print("ex shape:", np.array(examples).shape)
-##    print("ex shape:", np.array(examples[0]).shape)
     x_train, p_train, y_train = zip(*examples)
-##    for ex in examples:
-##        print("---\nCASE\n",ex[0], ex[2], "\n\n")
-##    raise ValueError
     in_train = tf.convert_to_tensor(x_train)
-##    print(in_train.shape)
-##    p = np.array(p_train)
-##    print(p.shape)
-    #y = np.array(y_train)
-    #print(y.shape)
     out_train = tf.convert_to_tensor(y_train)
     new_nnet.fit(in_train, out_train, epochs=10, verbose=0)
     return new_nnet
