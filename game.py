@@ -1,5 +1,5 @@
 import numpy as np
-import copy
+import copy, random
 
 class Game:
     @staticmethod
@@ -35,7 +35,9 @@ class Game:
                 else:
                     blanks.append((y, x))
         player = 1 if xCount == oCount else -1
-        return [(y, x, player) for (y, x) in blanks]
+        actions = [(y, x, player) for (y, x) in blanks]
+        random.shuffle(actions)
+        return actions
 
     @staticmethod
     def gameEnded(state):
