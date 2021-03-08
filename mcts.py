@@ -31,7 +31,8 @@ class MCTS:
 
         if s_key not in self.visited:
             self.visited.add(s_key)
-            self.P[s_key], v = nnet(s)
+            policy, v = nnet(s)
+            self.P[s_key] = policy.reshape((3,3,2))
             self.Q[s_key] = np.zeros((3,3,2))
             self.N[s_key] = np.zeros((3,3,2))
             return -v
