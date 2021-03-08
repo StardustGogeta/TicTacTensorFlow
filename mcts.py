@@ -31,7 +31,13 @@ class MCTS:
 
         if s_key not in self.visited:
             self.visited.add(s_key)
-            policy, v = nnet(s)
+
+            #print(s.shape)
+            s2 = np.array([s])
+            #print(s2.shape)
+            #pred = nnet.predict(s2)
+            #print(pred)
+            policy, v = nnet.predict(s2)
             self.P[s_key] = policy.reshape((3,3,2))
             self.Q[s_key] = np.zeros((3,3,2))
             self.N[s_key] = np.zeros((3,3,2))
@@ -40,7 +46,10 @@ class MCTS:
         max_u, best_a = -float("inf"), -1
         for a in game.getValidActions(s):
             a_key = (a[0], a[1], 0 if a[2] == 1 else 1) # Convert action to np index
-            u = self.Q[s_key][a_key] + self.c_puct*self.P[s_key][a_key]*sqrt(sum(self.N[s_key]))/(1+self.N[s_key][a_key])
+            u = (self.Q[s_key][a_key] +
+                self.c_puct*self.P[s_key][a_key]*
+                sqrt(self.N[s_key].sum())/
+                (1+self.N[s_key][a_key]))
             if u > max_u:
                 max_u = u
                 best_a = a
@@ -48,15 +57,16 @@ class MCTS:
         a_key = (a[0], a[1], 0 if a[2] == 1 else 1) # Convert action to np index
         
         sp = game.nextState(s, a)
-        v = search(sp, game, nnet)
+        v = self.search(sp, game, nnet)
 
         self.Q[s_key][a_key] = (self.N[s_key][a_key]*self.Q[s_key][a_key] + v)/(self.N[s_key][a_key]+1)
         self.N[s_key][a_key] += 1
         return -v
 
     def pi(self, s):
-        if s in self.P:
-            return self.P[s]
+        s_key = str(s) # get hash from state to use as dictionary key
+        if s_key in self.P:
+            return self.P[s_key]
         else:
             print('error, gamestate not found')
             return None
