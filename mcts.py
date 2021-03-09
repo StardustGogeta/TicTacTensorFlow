@@ -32,30 +32,28 @@ class MCTS:
         if s_key not in self.visited:
             self.visited.add(s_key)
 
-            #print(s.shape)
             s2 = np.array([s])
-            #print(s2.shape)
-            #pred = nnet.predict(s2)
-            #print(pred)
             policy, v = nnet.predict(s2)
-            self.P[s_key] = policy.reshape((3,3,2))
+            self.P[s_key] = policy[0]
             self.Q[s_key] = np.zeros((3,3,2))
             self.N[s_key] = np.zeros((3,3,2))
             return -v
       
-        max_u, best_a = -float("inf"), -1
+        max_u, best_a = -float("inf"), None
         for a in game.getValidActions(s):
             a_key = (a[0], a[1], 0 if a[2] == 1 else 1) # Convert action to np index
             u = (self.Q[s_key][a_key] +
                 self.c_puct*self.P[s_key][a_key]*
                 sqrt(self.N[s_key].sum())/
                 (1+self.N[s_key][a_key]))
-            if u > max_u:
+            if u > max_u or best_a is None:
                 max_u = u
                 best_a = a
         a = best_a
-        a_key = (a[0], a[1], 0 if a[2] == 1 else 1) # Convert action to np index
-        
+        try:
+            a_key = (a[0], a[1], 0 if a[2] == 1 else 1) # Convert action to np index
+        except:
+            print("current a", a, s, "actions", game.getValidActions(s))
         sp = game.nextState(s, a)
         v = self.search(sp, game, nnet)
 
