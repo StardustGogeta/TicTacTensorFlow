@@ -4,11 +4,11 @@ from game import Game
 import numpy as np
 import time, random
 
-numMCTSSims = 6 # number of times it iterates Monte Carlo tree search
+numMCTSSims = 20 # number of times it iterates Monte Carlo tree search
 threshold = 0.51 # win percentage threshold for neural net replacement
-gameCount = 10 # games to play between competing neural nets
-numIters = 10 # number of iterations
-numEps = 4 # number of episodes
+gameCount = 20 # games to play between competing neural nets
+numIters = 30 # number of iterations
+numEps = 10 # number of episodes
 
 loss_fns = [tf.keras.losses.CategoricalCrossentropy(), tf.keras.losses.MeanAbsoluteError()]
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
@@ -164,7 +164,7 @@ def initNNet():
     z = Dense(1, name="dense_value_2")(z)
     
     model = Model(inputs=boardInput, outputs=[y,z])
-    print(model.summary())
+    model.summary()
 
     # when we train it, we want to feed in examples of good moves and bad moves
     # the model should be able to take in a board state and return an optimal policy, and if it is winning or losing
