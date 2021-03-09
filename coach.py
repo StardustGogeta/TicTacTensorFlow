@@ -9,9 +9,11 @@ threshold = 0.51 # win percentage threshold for neural net replacement
 gameCount = 20 # games to play between competing neural nets
 numIters = 30 # number of iterations
 numEps = 10 # number of episodes
+numEpochs = 100 # number of epochs
+learningRate = 0.01 # learning rate for optimizer
 
 loss_fns = [tf.keras.losses.CategoricalCrossentropy(), tf.keras.losses.MeanAbsoluteError()]
-optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+optimizer = tf.keras.optimizers.Adam(learning_rate=learningRate)
 
 AUTOSAVE = True
 OLD_NNET_ALLOWED = True
@@ -178,7 +180,7 @@ def trainNNet(nnet, examples):
     
     # examples are of the form (state, policy, value)
     x_train, p_train, y_train = zip(*examples)
-    new_nnet.fit(np.array(x_train), [np.array(p_train), np.array(y_train)], epochs=10, verbose=0)
+    new_nnet.fit(np.array(x_train), [np.array(p_train), np.array(y_train)], epochs=numEpochs, verbose=0)
     return new_nnet
 
 def playAgainstHuman(nnet, game):
