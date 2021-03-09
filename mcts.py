@@ -71,3 +71,11 @@ class MCTS:
             print('error, gamestate not found')
             return None
 
+    def n(self, s):
+        s_key = str(s) # get hash from state to use as dictionary key
+        if s_key in self.N:
+            return self.N[s_key]
+        else:
+            print('error, gamestate not found')
+            return None
+
