@@ -4,16 +4,20 @@ from game import Game
 import numpy as np
 import time, random
 
-numMCTSSims = 20 # number of times it iterates Monte Carlo tree search
+numMCTSSims = 6 # number of times it iterates Monte Carlo tree search
 threshold = 0.51 # win percentage threshold for neural net replacement
-gameCount = 20 # games to play between competing neural nets
-numIters = 30 # number of iterations
-numEps = 10 # number of episodes
+gameCount = 10 # games to play between competing neural nets
+numIters = 10 # number of iterations
+numEps = 4 # number of episodes
+
+loss_fns = [tf.keras.losses.CategoricalCrossentropy(), tf.keras.losses.MeanAbsoluteError()]
+optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
 
 AUTOSAVE = True
+OLD_NNET_ALLOWED = True
 
 def policyIterSP(game):
-    if input("Do you want to load the previous neural net? (y/n) ") == "y":
+    if OLD_NNET_ALLOWED and input("Do you want to load the previous neural net? (y/n) ") == "y":
         nnet = tf.keras.models.load_model("./models/my_nnet")
     else:
         nnet = initNNet() # initialise random neural network
@@ -68,7 +72,7 @@ def getOptimalAction(game, s, mcts, nnet, examples=None):
     for action in game.getValidActions(s):
         a_key = (action[0], action[1], 0 if action[2] == 1 else 1) # Convert action to np index
         policy_val = policy[a_key]
-        if (policy_val > max_policy_val): # find the maximum value move that is legal
+        if (policy_val > max_policy_val or a is None): # find the maximum value move that is legal
             max_policy_val = policy_val
             a = action
     #print(f"Found optimal action\t\t[{time.perf_counter() - start} sec]")
@@ -136,6 +140,7 @@ def initNNet():
     # https://www.pyimagesearch.com/2019/02/04/keras-multiple-inputs-and-mixed-data/
     Input = tf.keras.Input
     Dense = tf.keras.layers.Dense
+    Reshape = tf.keras.layers.Reshape
     Flatten = tf.keras.layers.Flatten
     Dropout = tf.keras.layers.Dropout
     Concatenate = tf.keras.layers.Concatenate
@@ -153,13 +158,10 @@ def initNNet():
     x = Dropout(0.3, name="dropped")(x)
 
     y = Dense(18, activation='relu', name="dense_policy_1")(x)
+    y = Reshape((3,3,2), name="reshape_policy")(y)
 
     z = Dense(10, activation='relu', name="dense_value_1")(x)
     z = Dense(1, name="dense_value_2")(z)
-
-    #a = Concatenate()([y, z])
-
-    #output = Lambda(lambda t: Concatenate()(t))([y, z])
     
     model = Model(inputs=boardInput, outputs=[y,z])
     print(model.summary())
@@ -167,22 +169,16 @@ def initNNet():
     # when we train it, we want to feed in examples of good moves and bad moves
     # the model should be able to take in a board state and return an optimal policy, and if it is winning or losing
     
-    loss_fn = tf.keras.losses.MeanSquaredError()
-    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
-    model.compile(optimizer=optimizer, loss=loss_fn, metrics=['accuracy'])
+    model.compile(optimizer=optimizer, loss=loss_fns, metrics=['accuracy'])
     return model
 
 def trainNNet(nnet, examples):
     new_nnet = tf.keras.models.clone_model(nnet)
-    loss_fn = tf.keras.losses.MeanAbsoluteError()
-    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
-    new_nnet.compile(optimizer=optimizer, loss=loss_fn, metrics=['accuracy'])
+    new_nnet.compile(optimizer=optimizer, loss=loss_fns, metrics=['accuracy'])
     
     # examples are of the form (state, policy, value)
     x_train, p_train, y_train = zip(*examples)
-    in_train = tf.convert_to_tensor(x_train)
-    out_train = tf.convert_to_tensor(y_train)
-    new_nnet.fit(in_train, out_train, epochs=10, verbose=0)
+    new_nnet.fit(np.array(x_train), [np.array(p_train), np.array(y_train)], epochs=10, verbose=0)
     return new_nnet
 
 def playAgainstHuman(nnet, game):
@@ -283,8 +279,8 @@ def playAgainstRandom(nnet, game, numGames):
 game = Game()
 policyIterSP(game)
 
-#best_nnet = tf.keras.models.load_model("./models/my_nnet")
+best_nnet = tf.keras.models.load_model("./models/my_nnet")
 #print(best_nnet.summary())
-#playAgainstRandom(best_nnet, game, 200)
+playAgainstRandom(best_nnet, game, 200)
 #playAgainstHuman(best_nnet, game)
 
