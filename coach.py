@@ -31,7 +31,7 @@ def policyIterSP(game):
     print("Starting training...")
     examples = []    
     for i in range(numIters):
-        print("Starting training iteration {i+1}...")
+        print(f"Starting training iteration {i+1}...")
         for e in range(numEps):
             examples += executeEpisode(game, nnet) # collect examples from this game
         new_nnet = trainNNet(nnet, examples)
@@ -138,7 +138,7 @@ def pit(new, old, game):
             if game.gameEnded(s):
                 newWins += (game.gameReward(s) + 1) / 2
                 break # end the game simulation
-    print(f"Success rate: {newWins / gameCount:.2f}\t\t[{time.perf_counter() - start} sec]")
+    print(f"Success rate: {newWins / gameCount:.4f}\t\t[{f'{time.perf_counter() - start:.5f}'} sec]")
     return newWins / gameCount
 
 def initNNet():
@@ -172,12 +172,13 @@ def initNNet():
 
 def trainNNet(nnet, examples):
     print(f"Training with {len(examples)} example boards...")
+    print(random.choice(examples))
     new_nnet = tf.keras.models.clone_model(nnet)
     new_nnet.compile(optimizer=optimizer, loss=loss_fns, loss_weights=loss_weights, metrics=metrics)
     
     # examples are of the form (state, policy, value)
     x_train, p_train, y_train = zip(*examples)
-    new_nnet.fit(np.array(x_train), [np.array(p_train), np.array(y_train)], epochs=numEpochs, verbose=2)
+    new_nnet.fit(np.array(x_train), [np.array(p_train), np.array(y_train)], epochs=numEpochs, verbose=0)
     return new_nnet
 
 def playAgainstHuman(nnet, game):
