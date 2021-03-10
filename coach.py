@@ -1,19 +1,23 @@
 import tensorflow as tf
+from tensorflow.keras import Model, Input
+from tensorflow.keras.layers import Dense, Reshape, Flatten, Dropout
 from mcts import MCTS
 from game import Game
 import numpy as np
 import time, random
 
 numMCTSSims = 20 # number of times it iterates Monte Carlo tree search
-threshold = 0.51 # win percentage threshold for neural net replacement
+threshold = 0.5 # win percentage threshold for neural net replacement
 gameCount = 20 # games to play between competing neural nets
-numIters = 30 # number of iterations
+numIters = 10 # number of iterations
 numEps = 10 # number of episodes
-numEpochs = 100 # number of epochs
-learningRate = 0.01 # learning rate for optimizer
+numEpochs = 60 # number of epochs
+learningRate = 0.001 # learning rate for optimizer
 
-loss_fns = [tf.keras.losses.CategoricalCrossentropy(), tf.keras.losses.MeanAbsoluteError()]
+loss_fns = [tf.keras.losses.MeanSquaredError(), tf.keras.losses.MeanSquaredError()]
 optimizer = tf.keras.optimizers.Adam(learning_rate=learningRate)
+loss_weights = [0.2, 1]
+metrics = ['accuracy']
 
 AUTOSAVE = True
 OLD_NNET_ALLOWED = True
@@ -24,16 +28,17 @@ def policyIterSP(game):
     else:
         nnet = initNNet() # initialise random neural network
         saveNNet(nnet)
-    print("Starting training")
+    print("Starting training...")
     examples = []    
     for i in range(numIters):
+        print("Starting training iteration {i+1}...")
         for e in range(numEps):
             examples += executeEpisode(game, nnet) # collect examples from this game
         new_nnet = trainNNet(nnet, examples)
-        print(f"Done training iteration {i}")
+        print(f"Done training iteration {i+1}.")
         frac_win = pit(new_nnet, nnet, game) # compare new net with previous net
-        print("Done pitting")
-        if frac_win > threshold:
+        print("Done pitting.")
+        if frac_win >= threshold:
             nnet = new_nnet # replace with new net
             saveNNet(nnet)
             
@@ -42,7 +47,7 @@ def policyIterSP(game):
 def saveNNet(nnet):
     if AUTOSAVE or input("Do you want to save the new neural net? (y/n) ") == "y":
         nnet.save("./models/my_nnet")
-        print("Done saving")
+        print("Done saving.")
 
 def executeEpisode(game, nnet):
     examples = []
@@ -140,29 +145,20 @@ def initNNet():
     # creates and returns new neural network
     # modified functional model:
     # https://www.pyimagesearch.com/2019/02/04/keras-multiple-inputs-and-mixed-data/
-    Input = tf.keras.Input
-    Dense = tf.keras.layers.Dense
-    Reshape = tf.keras.layers.Reshape
-    Flatten = tf.keras.layers.Flatten
-    Dropout = tf.keras.layers.Dropout
-    Concatenate = tf.keras.layers.Concatenate
-    Lambda = tf.keras.layers.Lambda
-    Model = tf.keras.Model
-    
+
     # Goes like this:
     # x (board) --| --> y (policy)
     #             | --> z (value)
     #
     boardInput = Input(shape=(3,3))
-    x = Dense(8, activation='relu')(boardInput)
-    x = Dense(20, activation='relu')(x)
+    x = Dense(32, activation='relu')(boardInput)
     x = Flatten(name="flattened")(x)
     x = Dropout(0.3, name="dropped")(x)
 
-    y = Dense(18, activation='relu', name="dense_policy_1")(x)
+    y = Dense(18, name="dense_policy_1")(x)
     y = Reshape((3,3,2), name="reshape_policy")(y)
 
-    z = Dense(10, activation='relu', name="dense_value_1")(x)
+    z = Dense(10, name="dense_value_1")(x)
     z = Dense(1, name="dense_value_2")(z)
     
     model = Model(inputs=boardInput, outputs=[y,z])
@@ -171,16 +167,17 @@ def initNNet():
     # when we train it, we want to feed in examples of good moves and bad moves
     # the model should be able to take in a board state and return an optimal policy, and if it is winning or losing
     
-    model.compile(optimizer=optimizer, loss=loss_fns, metrics=['accuracy'])
+    model.compile(optimizer=optimizer, loss=loss_fns, loss_weights=loss_weights, metrics=metrics)
     return model
 
 def trainNNet(nnet, examples):
+    print(f"Training with {len(examples)} example boards...")
     new_nnet = tf.keras.models.clone_model(nnet)
-    new_nnet.compile(optimizer=optimizer, loss=loss_fns, metrics=['accuracy'])
+    new_nnet.compile(optimizer=optimizer, loss=loss_fns, loss_weights=loss_weights, metrics=metrics)
     
     # examples are of the form (state, policy, value)
     x_train, p_train, y_train = zip(*examples)
-    new_nnet.fit(np.array(x_train), [np.array(p_train), np.array(y_train)], epochs=numEpochs, verbose=0)
+    new_nnet.fit(np.array(x_train), [np.array(p_train), np.array(y_train)], epochs=numEpochs, verbose=2)
     return new_nnet
 
 def playAgainstHuman(nnet, game):

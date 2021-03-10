@@ -33,11 +33,11 @@ class MCTS:
             self.visited.add(s_key)
 
             s2 = np.array([s])
-            policy, v = nnet.predict(s2)
+            policy, v = nnet(s2)
             self.P[s_key] = policy[0]
             self.Q[s_key] = np.zeros((3,3,2))
             self.N[s_key] = np.zeros((3,3,2))
-            return -v
+            return -v[0]
       
         max_u, best_a = -float("inf"), None
         for a in game.getValidActions(s):
