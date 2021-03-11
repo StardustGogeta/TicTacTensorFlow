@@ -72,8 +72,8 @@ def getCPUInput(board, player): # Return (y, x, player) where player is 1=X or -
         # Prevent future double-attacks
         for r in range(3): # For each spot on the board...
             for c in range(3):
-                # If it is an empty spot and 
-                if not board[r, c] and doubleAttacks[r, c]:
+                # If it is an empty spot and there cannot be a double attack afterwards
+                if not board[r, c] and not doubleAttacks[r, c]:
                     return r, c, player
 
         # Take what you can get! Any empty spot works.
