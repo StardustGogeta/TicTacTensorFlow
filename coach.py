@@ -4,13 +4,13 @@ from tensorflow.keras.layers import Dense, Reshape, Flatten, Dropout
 from mcts import MCTS
 from game import Game
 import numpy as np
-import time, random
+import time, random, teacher
 
 numMCTSSims = 20 # number of times it iterates Monte Carlo tree search
 threshold = 0.5 # win percentage threshold for neural net replacement
 gameCount = 20 # games to play between competing neural nets
-numIters = 10 # number of iterations
-numEps = 10 # number of episodes
+numIters = 20 # number of iterations
+numEps = 20 # number of episodes
 numEpochs = 60 # number of epochs
 learningRate = 0.001 # learning rate for optimizer
 
@@ -33,7 +33,8 @@ def policyIterSP(game):
     for i in range(numIters):
         print(f"Starting training iteration {i+1}...")
         for e in range(numEps):
-            examples += executeEpisode(game, nnet) # collect examples from this game
+            examples += executeEpisodeBot(game, nnet) # collect examples from this game
+            # print("has",examples)
         new_nnet = trainNNet(nnet, examples)
         print(f"Done training iteration {i+1}.")
         frac_win = pit(new_nnet, nnet, game) # compare new net with previous net
@@ -61,10 +62,108 @@ def executeEpisode(game, nnet):
             examples = assignRewards(examples, game.gameReward(s)) 
             return examples
 
+# Train the neural net from human input
+def executeEpisodeHuman(game, nnet):
+    examples1 = []
+    s = game.startState()
+    mcts = MCTS()
+    
+    while True:
+        # Human player goes first
+        print("\n-----\nBOARD\n-----\n", s, "\n")
+        a = eval(input("Give human move (y, x, 1): "))
+        a_key = (a[0], a[1], 0 if a[2] == 1 else 1) # Convert action to np index
+        policy = np.zeros((3,3,2))
+        policy[a_key] = 1
+        examples1.append([s, policy, None])
+        s = game.nextState(s,a)
+        if game.gameEnded(s):
+            examples1 = assignRewards(examples1, game.gameReward(s))
+            break # end the game simulation
+
+        # Neural net goes second
+        a, examples1 = getOptimalAction(game, s, mcts, nnet, examples1)
+        s = game.nextState(s,a)
+        if game.gameEnded(s):
+            examples1 = assignRewards(examples1, game.gameReward(s))
+            break # end the game simulation
+    print("\n-----\nFINAL BOARD\n-----\n", s, "\n")
+
+    examples2 = []
+    s = game.startState()
+    while True:
+        # Neural net goes first
+        a, examples2 = getOptimalAction(game, s, mcts, nnet, examples2)
+        s = game.nextState(s,a)
+        if game.gameEnded(s):
+            examples2 += assignRewards(examples2, game.gameReward(s))
+            break # end the game simulation
+
+        # Human player goes second
+        print("\n-----\nBOARD\n-----\n", s, "\n")
+        a = eval(input("Give human move (y, x, -1): "))
+        a_key = (a[0], a[1], 0 if a[2] == 1 else 1) # Convert action to np index
+        policy = np.zeros((3,3,2))
+        policy[a_key] = 1
+        examples2.append([s, policy, None])
+        s = game.nextState(s,a)
+        if game.gameEnded(s):
+            examples2 += assignRewards(examples2, game.gameReward(s))
+            break # end the game simulation
+    print("\n-----\nFINAL BOARD\n-----\n", s, "\n")
+    return examples1 + examples2
+
+# Train the neural net with inputs from a different tic-tac-toe program
+def executeEpisodeBot(game, nnet):
+    examples1 = []
+    s = game.startState()
+    mcts = MCTS()
+    
+    while True:
+        # Teacher bot goes first
+        a = teacher.getCPUInput(s, 1)
+        a_key = (a[0], a[1], 0 if a[2] == 1 else 1) # Convert action to np index
+        policy = np.zeros((3,3,2))
+        policy[a_key] = 1
+        examples1.append([s, policy, None])
+        s = game.nextState(s,a)
+        if game.gameEnded(s):
+            examples1 = assignRewards(examples1, game.gameReward(s))
+            break # end the game simulation
+
+        # Neural net goes second
+        a, examples1 = getOptimalAction(game, s, mcts, nnet, examples1)
+        s = game.nextState(s,a)
+        if game.gameEnded(s):
+            examples1 = assignRewards(examples1, game.gameReward(s))
+            break # end the game simulation
+
+    examples2 = []
+    s = game.startState()
+    while True:
+        # Neural net goes first
+        a, examples2 = getOptimalAction(game, s, mcts, nnet, examples2)
+        s = game.nextState(s,a)
+        if game.gameEnded(s):
+            examples2 += assignRewards(examples2, game.gameReward(s))
+            break # end the game simulation
+
+        # Teacher bot goes second
+        a = teacher.getCPUInput(s, -1)
+        a_key = (a[0], a[1], 0 if a[2] == 1 else 1) # Convert action to np index
+        policy = np.zeros((3,3,2))
+        policy[a_key] = 1
+        examples2.append([s, policy, None])
+        s = game.nextState(s,a)
+        if game.gameEnded(s):
+            examples2 += assignRewards(examples2, game.gameReward(s))
+            break # end the game simulation
+    return examples1 + examples2
+
 def assignRewards(examples, reward):
     for example in examples[::-1]:
         example[2] = reward
-        reward = -reward
+        reward = -reward * 0.8
     return examples
 
 def getOptimalAction(game, s, mcts, nnet, examples=None):
@@ -96,9 +195,6 @@ def pit(new, old, game):
     mcts_new = MCTS()
     mcts_old = MCTS()
     for _ in range(gameCount // 2):
-##        mcts_new = MCTS()
-##        mcts_old = MCTS()
-        
         s = game.startState()
         while True:
             ## New player goes first
@@ -118,8 +214,6 @@ def pit(new, old, game):
                 newWins += (-game.gameReward(s) + 1) / 2
                 break # end the game simulation
 
-##        mcts_new = MCTS()
-##        mcts_old = MCTS()
         s = game.startState()
         while True:
             ## Old player goes first
@@ -172,7 +266,7 @@ def initNNet():
 
 def trainNNet(nnet, examples):
     print(f"Training with {len(examples)} example boards...")
-    print(random.choice(examples))
+    # print(random.choice(examples))
     new_nnet = tf.keras.models.clone_model(nnet)
     new_nnet.compile(optimizer=optimizer, loss=loss_fns, loss_weights=loss_weights, metrics=metrics)
     
@@ -276,6 +370,12 @@ def playAgainstRandom(nnet, game, numGames):
         print(f"{2*(i+1)} of {numGames} games complete...")
     print(f"Neural net won {netWins}, tied {netTies}, and lost {numGames-netWins-netTies} of {numGames} games against random.")
 
+# Allow manual testing of neural net output with specific boards
+def testOutputs(nnet):
+    board = np.array([int(x) for x in input("Board: ").split(',')]).reshape((3,3))
+    print(board)
+    print('\n'.join(str(x) for x in nnet(np.array([board]))))
+
 game = Game()
 policyIterSP(game)
 
@@ -284,3 +384,4 @@ best_nnet = tf.keras.models.load_model("./models/my_nnet")
 playAgainstRandom(best_nnet, game, 200)
 #playAgainstHuman(best_nnet, game)
 
+#testOutputs(best_nnet)
